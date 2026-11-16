@@ -1,4 +1,5 @@
 import math
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,16 +19,21 @@ print(f"Device: {DEVICE}")
 ###########################
 ### 0. HYPERPARAMETERS ####
 ###########################
+parser = argparse.ArgumentParser()
+parser.add_argument("--learning-rate", type=float, default=1e-3)
+parser.add_argument("--dropout", type=float, default=0.1)
+args = parser.parse_args()
+
 # Model size, change if needed
 d_model = 128         # Our choice
 num_heads = 4         # Our choice
-num_layers = 3        # Our choice
+num_layers = 3         # Our choice
 d_ff = 4 * d_model    # Feed-forward hidden size, 4x d_model as in Vaswani et al.
-dropout = 0.1         # From models/transformer script
+dropout = args.dropout
 
 # Training
 batch_size = 64       # From exercise 6.1
-learning_rate = 1e-3  # From exercise 6.1
+learning_rate = args.learning_rate
 num_epochs = 15       # Our choice
 max_len = 129
 
@@ -105,7 +111,7 @@ if __name__ == "__main__":
 
     save_dir = Path("src/train/trained_transformer_models")
     save_dir.mkdir(parents=True, exist_ok=True)
-    model_name = f"d{d_model}_h{num_heads}_l{num_layers}_lr{learning_rate}_e{num_epochs}"
+    model_name = f"d{d_model}_h{num_heads}_l{num_layers}_lr{learning_rate}_drop{dropout}_e{num_epochs}"
     checkpoint_file = save_dir / f"{model_name}.pth"
 
     train_losses, val_losses = [], []
