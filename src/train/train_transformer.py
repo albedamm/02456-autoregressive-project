@@ -170,8 +170,18 @@ if __name__ == "__main__":
     
     plt.xlabel("Epoch")
     plt.ylabel("Negative log-likelihood per token")
-    plt.title("Transformer training and validation loss")
+    plt.title(
+        "Transformer training and validation loss\n"
+        f"learning rate={learning_rate}, dropout={dropout}, "
+        f"d_model={d_model}, heads={num_heads}, layers={num_layers}"
+    )
     
     plt.legend()
     plt.grid(True)
     plt.savefig(save_dir / f"{model_name}_loss_curve.png")
+
+    pd.DataFrame({
+        "epoch": range(1, num_epochs + 1),
+        "train_loss": train_losses,
+        "val_loss": val_losses,
+    }).to_csv(save_dir / f"{model_name}_losses.csv", index=False)
