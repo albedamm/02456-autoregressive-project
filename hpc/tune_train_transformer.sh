@@ -14,12 +14,14 @@
 set -eu
 cd "$(dirname "$0")/.."
 source hpc/env.sh
-
-for learning_rate in 3e-4 1e-3; do
-    for dropout in 0.1 0.2; do
-        echo "Starting run: learning_rate=${learning_rate}, dropout=${dropout}"
-        uv run python src/train/train_transformer.py \
-            --learning-rate "${learning_rate}" \
-            --dropout "${dropout}"
+for num_epochs in 15 30 45; do
+    for learning_rate in 3e-4 1e-3; do
+        for dropout in 0.1 0.2; do
+            echo "Starting run: epochs=${num_epochs}, learning_rate=${learning_rate}, dropout=${dropout}"
+            uv run python src/train/train_transformer.py \
+                --num-epochs "${num_epochs}" \
+                --learning-rate "${learning_rate}" \
+                --dropout "${dropout}"
+        done
     done
 done

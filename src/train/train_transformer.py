@@ -22,6 +22,7 @@ print(f"Device: {DEVICE}")
 parser = argparse.ArgumentParser()
 parser.add_argument("--learning-rate", type=float, default=1e-3)
 parser.add_argument("--dropout", type=float, default=0.1)
+parser.add_argument("--num-epochs", type=int, default=15)
 args = parser.parse_args()
 
 # Model size, change if needed
@@ -34,7 +35,7 @@ dropout = args.dropout
 # Training
 batch_size = 64       # From exercise 6.1
 learning_rate = args.learning_rate
-num_epochs = 15       # Our choice
+num_epochs = args.num_epochs
 max_len = 129
 
 
@@ -172,7 +173,7 @@ if __name__ == "__main__":
     plt.ylabel("Negative log-likelihood per token")
     plt.title(
         "Transformer training and validation loss\n"
-        f"learning rate={learning_rate}, dropout={dropout}, "
+        f"learning rate={learning_rate}, dropout={dropout}, epochs={num_epochs}\n"
         f"d_model={d_model}, heads={num_heads}, layers={num_layers}"
     )
     
