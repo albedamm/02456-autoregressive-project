@@ -36,9 +36,6 @@ generated_sequences = []
 # Maximum length of the generated sequence (excluding <PAD> and <BOS>)
 max_length = 129 - 2  
 
-
-
-
 # Function to generate a protein sequence using the trained MLP model
 def generate_sequence(model, max_length=max_length):
     # Initialize the context with <PAD>, <PAD>, <BOS>
