@@ -8,17 +8,18 @@ from protgen.data import IGNORE_INDEX, ProteinDataset
 from protgen.models.transformer import ProteinTransformer
 
 # Paths to test data and chosen model
-data_path = Path("/work3/s203530/02456-autoregressive-project/data/test.csv")
-model_path = "/work3/s203530/02456-autoregressive-project/trained_models/trained_transformer_models/stage1/d128_h4_l3_lr0.001_drop0.1_e60_s0.pth"
+data_path = Path("data/test.csv")
+model_path = "trained_models/trained_transformer_models/stage1/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
 
 # Hyperparameter settings
 batch_size = 64
-d_model = 128
-num_heads = 4
-num_layers = 3
+d_model = 384
+num_heads = 12
+num_layers = 4
 d_ff = 4 * d_model
-dropout = 0.1
+dropout = 0.2
 max_len = 129
+
 
 # Load data
 test_data = ProteinDataset(data_path)
@@ -55,9 +56,9 @@ def main():
     model.to(device).eval()
 
     print(f"checkpoint: {checkpoint}")
-    print(f"{'sequences':>9s} {'loss':>18s} {'perplexity':>10s}")
+    print(f"{'sequences':>9s} {'loss':>18s}")
     loss, n_seq = score(model, test_loader, device)
-    print(f"{n_seq:9d} {loss:18.4f} {math.exp(loss):10.3f}")
+    print(f"{n_seq:9d} {loss:18.4f}")
 
 
 if __name__ == "__main__":
