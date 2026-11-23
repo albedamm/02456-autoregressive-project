@@ -1,11 +1,13 @@
 import torch
 import protgen.models.mlp as mlp
 from protgen.data import ProteinDataset
+import pandas as pd
+from pathlib import Path
 
 # Define the hyperparameters for the model
 k = 3
 embedding_dim = 16
-num_hidden = 64
+num_hidden = 128
 num_output = 23
 
 # Build the MLP model architecture with the specified hyperparameters
@@ -16,7 +18,7 @@ model = mlp.ProteinMLP(
     embedding_dim=embedding_dim)
 
 # Define the path to the trained model file
-model_path = "src/train/trained_mlp_models/emb16_h64_lr0.01_e100.pth"
+model_path = "trained_models/trained_mlp_models/mlp_emb16_h128_lr0.1_e250.pth"
 
 # Load the trained model weights into the MLP model
 model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
@@ -27,9 +29,18 @@ model.eval()
 # Load the dataset for decoding generated sequences
 dataset = ProteinDataset("data/train.csv")
 
+# The number of sequences to generate
+num_sequences = 20
+generated_sequences = []
+
+# Maximum length of the generated sequence (excluding <PAD> and <BOS>)
+max_length = 129 - 2  
+
+
+
 
 # Function to generate a protein sequence using the trained MLP model
-def generate_sequence(model, max_length=1279-2):
+def generate_sequence(model, max_length=max_length):
     # Initialize the context with <PAD>, <PAD>, <BOS>
     context = torch.tensor([[0, 0, 1]], dtype=torch.long)
     generated_tokens = []
@@ -67,9 +78,16 @@ def generate_sequence(model, max_length=1279-2):
 
 
 # Generate and decode a sequence
-generated_tokens = generate_sequence(model)
-protein_sequence = dataset.decode(generated_tokens)
+for i in range(num_sequences):
+    generated_tokens = generate_sequence(model)
+    protein_sequence = dataset.decode(generated_tokens)
 
-print("Generated token IDs:", generated_tokens)
-print("Generated protein:", protein_sequence)
-print("Length of generated protein:", len(protein_sequence))
+    generated_sequences.append(protein_sequence)
+
+# Save sequences to CSV
+save_path = Path("results/sequences/mlp_sequences.csv")
+
+df = pd.DataFrame({"sequence": generated_sequences})
+df.to_csv(save_path, index=False)
+
+print(f"Saved {num_sequences} sequences to {save_path}")
