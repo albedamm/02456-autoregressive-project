@@ -1,8 +1,10 @@
 import math
+import random
 import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
@@ -20,15 +22,26 @@ print(f"Device: {DEVICE}")
 ### 0. HYPERPARAMETERS ####
 ###########################
 parser = argparse.ArgumentParser()
-parser.add_argument("--learning-rate", type=float, default=1e-3)
-parser.add_argument("--dropout", type=float, default=0.1)
-parser.add_argument("--num-epochs", type=int, default=15)
+parser.add_argument("--learning-rate", type=float, default=1e-3)        # Default is set from first round of tuning
+parser.add_argument("--dropout", type=float, default=0.1)               # Default is set from first round of tuning
+parser.add_argument("--num-epochs", type=int, default=45)               # Default is set from first round of tuning
+parser.add_argument("--d-model", type=int, default=128)
+parser.add_argument("--num-heads", type=int, default=4)
+parser.add_argument("--num-layers", type=int, default=3)
+parser.add_argument("--seed", type=int, default=0)                      # Random seed, so runs can be reproduced and repeated
+parser.add_argument("--save-dir", type=str, default="src/train/trained_transformer_models")
 args = parser.parse_args()
 
+# Fix the random seed (weight init, dropout and data shuffling)
+seed = args.seed
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)    # also seeds all CUDA devices
+
 # Model size, change if needed
-d_model = 128         # Our choice
-num_heads = 4         # Our choice
-num_layers = 3         # Our choice
+d_model = args.d_model
+num_heads = args.num_heads
+num_layers = args.num_layers
 d_ff = 4 * d_model    # Feed-forward hidden size, 4x d_model as in Vaswani et al.
 dropout = args.dropout
 
@@ -110,9 +123,9 @@ if __name__ == "__main__":
 
     optimiser = torch.optim.AdamW(model.parameters(), lr=learning_rate)     # From exercise 6.1
 
-    save_dir = Path("src/train/trained_transformer_models")
+    save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
-    model_name = f"d{d_model}_h{num_heads}_l{num_layers}_lr{learning_rate}_drop{dropout}_e{num_epochs}"
+    model_name = f"d{d_model}_h{num_heads}_l{num_layers}_lr{learning_rate}_drop{dropout}_e{num_epochs}_s{seed}"
     checkpoint_file = save_dir / f"{model_name}.pth"
 
     train_losses, val_losses = [], []
@@ -174,7 +187,7 @@ if __name__ == "__main__":
     plt.title(
         "Transformer training and validation loss\n"
         f"learning rate={learning_rate}, dropout={dropout}, epochs={num_epochs}\n"
-        f"d_model={d_model}, heads={num_heads}, layers={num_layers}"
+        f"d_model={d_model}, heads={num_heads}, layers={num_layers}, seed={seed}"
     )
     
     plt.legend()
