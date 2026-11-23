@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from protgen.data import IGNORE_INDEX, ProteinDataset
-# Insert correct model from Alberte
 from protgen.models.transformer import ProteinTransformer
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")  # 6.1 cell 2
