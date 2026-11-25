@@ -170,6 +170,10 @@ if __name__ == "__main__":
             x, y = x.to(DEVICE), y.to(DEVICE)
             # define one prediction per position (for target) - so returns list with 129 predicted classes for that protein
             target = y.view(-1, 1).expand_as(x).clone()
+            # Ignore the <PAD>, <BOS> and <EOS> tokens in the loss calculation, since they are not part of the protein sequence
+            target[x == PAD] = IGNORE_INDEX
+            target[x == BOS] = IGNORE_INDEX
+            target[x == EOS] = IGNORE_INDEX
 
             ##### NÅET HERTIL ####
 
@@ -178,7 +182,8 @@ if __name__ == "__main__":
             logits = classifier(x) # the prediction?
 
             # CrossEntropyLoss expects logits as (batch, vocab, sequence).
-            loss = criterion(logits.transpose(1, 2), y)
+            # Use target instead of y, since y is just a single class per protein, while target is a class per position (with IGNORE_INDEX for <PAD>, <BOS> and <EOS>)
+            loss = criterion(logits.transpose(1, 2), target)
 
             # Backward and optimize
             loss.backward()
@@ -198,7 +203,13 @@ if __name__ == "__main__":
 
                 # define validation datasets (using y since classification)
                 x, y = x.to(DEVICE), y.to(DEVICE)
-                val_loss += criterion(classifier(x).transpose(1, 2), y).item()
+                # Same as above, define one prediction per position (for target) - so returns list with 129 predicted classes for that protein
+                target = y.view(-1, 1).expand_as(x).clone()
+                # Ignore the <PAD>, <BOS> and <EOS> tokens in the loss calculation, since they are not part of the protein sequence
+                target[x == PAD] = IGNORE_INDEX
+                target[x == BOS] = IGNORE_INDEX
+                target[x == EOS] = IGNORE_INDEX
+                val_loss += criterion(classifier(x).transpose(1, 2), target).item()
 
         val_losses.append(val_loss / len(val_loader))
 

@@ -41,7 +41,7 @@ class ProteinClassifier(nn.Module):
         return self.class_head(h) # and then run class_head on that to get protein class scores per position
     
     def lm_logits(self, x):
-        return self.lm_head(self.tranf_frozen(x)) # next token scores - for guidance
+        return self.lm_head(self.transf_frozen(x)) # next token scores - for guidance
 
     # make sure the frozen parts' dropout is turned off
     def train(self, mode=True):
@@ -99,7 +99,7 @@ def initialize_classifier(
         nn.ReLU(), #activation function
         nn.Dropout(0.1), #applying dropout again for more robust learning
         nn.Linear(in_features = class_head_features, out_features = number_output_classes) #128 input features to this layer (d_model)
-    )
+    ) # 128 numbers → 64 numbers → 3 family scores
 
     return model, lm_head, class_head, {
         "num_model_parameters": num_model_parameters,
