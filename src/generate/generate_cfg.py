@@ -18,9 +18,9 @@ parser.add_argument("--model-path", type=str, required=True)
 parser.add_argument("--num-sequences", type=int, default=100)
 parser.add_argument("--w", type=float, nargs="+", default=[0.0, 0.5, 1.0, 2.0, 5.0])
 parser.add_argument("--temperature", type=float, default=1.0)
-parser.add_argument("--batch-size", type=int, default=64)
 parser.add_argument("--out", type=str, default="results/sequences/cfg_sequences.csv")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--family", type=str, default="HU")
 args = parser.parse_args()
 
 
@@ -31,9 +31,6 @@ args = parser.parse_args()
 # dropout = 0.2
 # max_len = 129
 # vocab_size = 23
-
-rows = []
-
 
 # # Define the path to the trained model file
 # model_path = "trained_models/trained_transformer_models/stage1/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
@@ -68,22 +65,44 @@ EOS = dataset.vocab["<EOS>"]
 # Define max length of generated sequence
 max_len = checkpoint["config"]["max_seq_len"]
 w_values = args.w
-batch_size = args.batch_size
 temperature = args.temperature
+num_sequences = args.num_sequences
+family = args.family
 
+if family not in fam_to_idx:
+    raise ValueError(f"Unknown family '{family}'. Choose one of {list(fam_to_idx)}")
+label_idx = fam_to_idx[family]
+
+rows = []
 
 # Function to generate a protein sequence using the trained transformer model
-def cfg_sequence(model, target_label, w, batch_size=64, temperature=1.0, max_length=max_len - 1):
-    BOS, EOS = 1, 2
-    context = torch.tensor([[BOS]], dtype=torch.long)   # just <BOS>
+def cfg_sequence(model, target_label, w, temperature=1.0, max_length=max_len - 1):
+    
+    # Initialize the context with the beginning-of-sequence token 
+    context = torch.tensor([[BOS]], dtype=torch.long, device=DEVICE)  
+
+    
+    # Create label tensors for the conditional and null labels 
+    cond_labels = torch.tensor([target_label], dtype=torch.long, device=DEVICE)
+    null_labels = torch.tensor([null_label], dtype=torch.long, device=DEVICE)
+
     generated_tokens = []
 
     with torch.no_grad():
         for _ in range(max_length):
-            logits = model(context)[:, -1, :]
-            logits[:, :2] = -float("inf")               # block <PAD> and <BOS>
-
-            probabilities = torch.softmax(logits, dim=-1)
+            
+            # Forward pass through the model to get logits for both conditional and null labels
+            cond_logits = model(context, labels=cond_labels)[:, -1, :]
+            null_logits = model(context, labels=null_labels)[:, -1, :]
+        
+            logits = (1 + w) * cond_logits - w * null_logits
+            
+            # Avoid sampling <PAD> and <BOS> tokens by setting their logits to -inf
+            logits[:, PAD] = -float("inf") 
+            logits[:, BOS] = -float("inf")
+            
+            # Convert logits to probabilities using softmax 
+            probabilities = torch.softmax(logits / temperature, dim=-1)
             next_token = torch.multinomial(probabilities, num_samples=1)
 
             if next_token.item() == EOS:
@@ -95,19 +114,19 @@ def cfg_sequence(model, target_label, w, batch_size=64, temperature=1.0, max_len
     return generated_tokens
 
 # Generate and decode a sequence
-for i in range(num_sequences):
-    generated_tokens = generate_sequence(model)
-    protein_sequence = dataset.decode(generated_tokens)
-    print("Generated token IDs:", generated_tokens)
-    print("Generated protein:", protein_sequence)
-    print("Length of generated protein:", len(protein_sequence))
+for w in w_values:
+    for i in range(num_sequences):
+        generated_tokens = cfg_sequence(model, target_label=label_idx, w=w, temperature=temperature)
+        protein_sequence = dataset.decode(generated_tokens)
+        print(f"Generated token IDs (w={w}):", generated_tokens)
+        print(f"Generated protein (w={w}):", protein_sequence)
+        print(f"Length of generated protein (w={w}):", len(protein_sequence))
 
-    generated_sequences.append(protein_sequence)
-
+        rows.append({"sequence": protein_sequence, "family": family, "w": w})
+            
 # Save sequences to CSV
-save_path = Path("results/sequences/transformer_sequences.csv")
+save_path = Path(args.out)
+save_path.parent.mkdir(parents=True, exist_ok=True)
 
-df = pd.DataFrame({"sequence": generated_sequences})
-df.to_csv(save_path, index=False)
-
-print(f"Saved {num_sequences} sequences to {save_path}")
+pd.DataFrame(rows).to_csv(save_path, index=False)
+print(f"Saved {len(rows)} sequences to {save_path}")
