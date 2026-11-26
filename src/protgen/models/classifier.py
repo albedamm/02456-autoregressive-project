@@ -17,10 +17,10 @@ from protgen.models.transformer import ProteinTransformer
 
 ### INITIALIZE STUFF ###
 vocab_size = 23
-d_model = 128
-n_heads = 4
-d_ff = 512
-num_layers = 3
+d_model = 384
+n_heads = 12
+d_ff = 4 * d_model
+num_layers = 4
 dropout = 0.1
 max_seq_len = 129
 
@@ -72,8 +72,9 @@ def initialize_classifier(
     dropout = dropout,
     max_seq_len = max_seq_len,
     )
-
-    checkpoint_file = Path("trained_models/trained_transformer_models/stage1/d128_h4_l3_lr0.001_drop0.1_e60_s0.pth")
+    
+    # Best model from the tuning of transformer model
+    checkpoint_file = Path("trained_models/trained_transformer_models/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth")
     body.load_state_dict(torch.load(checkpoint_file, map_location=map_location))
     
     num_model_parameters = 0

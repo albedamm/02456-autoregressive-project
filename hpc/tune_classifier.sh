@@ -25,7 +25,7 @@ for class_head_features in 32 64 128; do
             [ "${run_id}" -eq "${LSB_JOBINDEX}" ] || continue
 
             lr_name=$(python3 -c "print(float('${learning_rate}'))")
-            model_name="d128_h4_l3_cf${class_head_features}_lr${lr_name}_drop${dropout}_e${num_epochs}_s${seed}"
+            model_name="d384_h12_l4_cf${class_head_features}_lr${lr_name}_drop${dropout}_e${num_epochs}_s${seed}"
             if [ -f "${save_dir}/${model_name}_losses.csv" ]; then
                 echo "Already done: ${model_name}, skipping"
                 exit 0
