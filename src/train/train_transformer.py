@@ -71,6 +71,7 @@ EOS = train_data.vocab["<EOS>"]
 ### 2. LOSS ###
 ###############
 
+# cross entropy + skipping padding
 criterion = torch.nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
 
 
@@ -78,28 +79,34 @@ criterion = torch.nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
 ### 3. SAMPLING ###
 ###################
 
+# no gradients, we only generate
 @torch.no_grad()  # same as `with torch.no_grad():` in exercise 6.1
+
+
 def sample(model, batch_size=10, temperature=1.0, max_len=max_len):
-    model.eval()
-    token_ids = torch.full((batch_size, 1), BOS, dtype=torch.long, device=DEVICE)
+    model.eval() # turn of dropout
+    token_ids = torch.full((batch_size, 1), BOS, dtype=torch.long, device=DEVICE) # every sequence starts as <BOS>, (B, 1)
+    
+    # add one token per step
     for t in range(max_len - 1):
-        logits = model(token_ids)
-        logits_t = logits[:, -1:] / temperature
-        forbidden = torch.tensor([PAD, BOS], device=DEVICE).view(1, 1, -1).expand(batch_size, 1, -1)
-        logits_t.scatter_(index=forbidden, dim=2, value=-math.inf)
-        p_wt = torch.distributions.Categorical(logits=logits_t)
-        tokens_t = p_wt.sample()                                      # (B, 1)
-        token_ids = torch.cat([token_ids, tokens_t], dim=1)
-        if (token_ids == EOS).any(dim=1).all():
+        logits = model(token_ids) # scores for every position (B, t+1, vocab)
+        logits_t = logits[:, -1:] / temperature # define temperature
+        forbidden = torch.tensor([PAD, BOS], device=DEVICE).view(1, 1, -1).expand(batch_size, 1, -1) # ids that should not be generated (BOS and PAD)
+        logits_t.scatter_(index=forbidden, dim=2, value=-math.inf) # set the forbidden scores to -inf to make their probs 0 after activation
+        p_wt = torch.distributions.Categorical(logits=logits_t) # Categorical passes softmax, which makes scores to probabilities
+        tokens_t = p_wt.sample() # grabs a random token from the sample (but higher probability ones will ofc have higher prob of being picked)
+        token_ids = torch.cat([token_ids, tokens_t], dim=1) # append the token to the sequence
+        if (token_ids == EOS).any(dim=1).all(): # stop when reaching end of sequence
             break
 
     # cut each sequence at its first <EOS> and turn ids into amino-acid letters
     sequences = []
+    # iterating over one sequence at a time
     for seq in token_ids.cpu():
-        eos_positions = (seq == EOS).nonzero()
-        if len(eos_positions) > 0:
+        eos_positions = (seq == EOS).nonzero() #getting the positions of EOS
+        if len(eos_positions) > 0: # keep everything before the EOS
             seq = seq[: eos_positions[0, 0]]
-        sequences.append(train_data.decode(seq))
+        sequences.append(train_data.decode(seq)) # and decode from ids to letters
     return sequences
 
 
