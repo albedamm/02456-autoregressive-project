@@ -38,7 +38,7 @@ model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=Tr
 # Set the model to evaluation mode
 model.eval()
 
-# Load the dataset for decoding generated sequences
+# Use the ProteinDataset function to load the decode function
 dataset = ProteinDataset("data/train.csv")
 
 # Function to generate a protein sequence using the trained transformer model
