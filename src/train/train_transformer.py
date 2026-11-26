@@ -20,13 +20,14 @@ print(f"Device: {DEVICE}")
 ###########################
 ### 0. HYPERPARAMETERS ####
 ###########################
+# Defaults are set from the best hyperparameters found in the tuning script
 parser = argparse.ArgumentParser()
-parser.add_argument("--learning-rate", type=float, default=1e-3)        # Default is set from first round of tuning
-parser.add_argument("--dropout", type=float, default=0.1)               # Default is set from first round of tuning
-parser.add_argument("--num-epochs", type=int, default=45)               # Default is set from first round of tuning
-parser.add_argument("--d-model", type=int, default=128)
-parser.add_argument("--num-heads", type=int, default=4)
-parser.add_argument("--num-layers", type=int, default=3)
+parser.add_argument("--learning-rate", type=float, default=1e-3)
+parser.add_argument("--dropout", type=float, default=0.2)
+parser.add_argument("--num-epochs", type=int, default=60)
+parser.add_argument("--d-model", type=int, default=384)
+parser.add_argument("--num-heads", type=int, default=12)
+parser.add_argument("--num-layers", type=int, default=4)
 parser.add_argument("--seed", type=int, default=0)                      # Random seed, so runs can be reproduced and repeated
 parser.add_argument("--save-dir", type=str, default="src/train/trained_transformer_models")
 args = parser.parse_args()
