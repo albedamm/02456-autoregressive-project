@@ -29,7 +29,7 @@ parser.add_argument("--d-model", type=int, default=128)
 parser.add_argument("--num-heads", type=int, default=4)
 parser.add_argument("--num-layers", type=int, default=3)
 parser.add_argument("--seed", type=int, default=0)                      # Random seed, so runs can be reproduced and repeated
-parser.add_argument("--save-dir", type=str, default="src/train/trained_transformer_models")
+parser.add_argument("--save-dir", type=str, default="trained_models/trained_cond_transformer_models")
 args = parser.parse_args()
 
 # Fix the random seed (weight init, dropout and data shuffling)
@@ -56,8 +56,8 @@ max_len = 129
 #####################
 ### 1. LOAD DATA ####
 #####################
-train_data = ProteinDataset("data/train.csv")
-val_data = ProteinDataset("data/val.csv")
+train_data = ProteinDataset("data/train_test.csv")
+val_data = ProteinDataset("data/val_test.csv")
 #print(train_data)
 
 train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
