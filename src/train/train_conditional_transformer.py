@@ -56,8 +56,8 @@ max_len = 129
 #####################
 ### 1. LOAD DATA ####
 #####################
-train_data = ProteinDataset("data/train_test.csv")
-val_data = ProteinDataset("data/val_test.csv")
+train_data = ProteinDataset("data/train.csv")
+val_data = ProteinDataset("data/val.csv")
 #print(train_data)
 
 train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
