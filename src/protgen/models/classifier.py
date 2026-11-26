@@ -59,7 +59,8 @@ def initialize_classifier(
     #   number_classes = 3, 
     #   weights_only=True # restricts loading to plain tensors
       number_output_classes = 3, # number of protein classes
-      class_head_features = 64 # also try 32 and 128
+    class_head_features = 64, # also try 32 and 128
+    class_head_dropout = 0.1
       ):
 
     body = ProteinTransformer(
@@ -72,7 +73,7 @@ def initialize_classifier(
     max_seq_len = max_seq_len,
     )
 
-    checkpoint_file = Path("/Users/kristinetoftjohansen/Desktop/DeepLearning/02456-autoregressive-project/trained_models/trained_transformer_models/stage1/d128_h4_l3_lr0.001_drop0.1_e60_s0.pth")
+    checkpoint_file = Path("trained_models/trained_transformer_models/stage1/d128_h4_l3_lr0.001_drop0.1_e60_s0.pth")
     body.load_state_dict(torch.load(checkpoint_file, map_location=map_location))
     
     num_model_parameters = 0
@@ -97,7 +98,7 @@ def initialize_classifier(
     class_head = nn.Sequential(
         nn.Linear(in_features = d_model, out_features=class_head_features), 
         nn.ReLU(), #activation function
-        nn.Dropout(0.1), #applying dropout again for more robust learning
+        nn.Dropout(class_head_dropout), #applying dropout again for more robust learning
         nn.Linear(in_features = class_head_features, out_features = number_output_classes) #128 input features to this layer (d_model)
     ) # 128 numbers → 64 numbers → 3 family scores
 
