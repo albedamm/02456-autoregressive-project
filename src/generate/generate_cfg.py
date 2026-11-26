@@ -69,6 +69,10 @@ temperature = args.temperature
 num_sequences = args.num_sequences
 family = args.family
 
+if family not in fam_to_idx:
+    raise ValueError(f"Unknown family '{family}'. Choose one of {list(fam_to_idx)}")
+label_idx = fam_to_idx[family]
+
 rows = []
 
 # Function to generate a protein sequence using the trained transformer model
@@ -110,21 +114,19 @@ def cfg_sequence(model, target_label, w, temperature=1.0, max_length=max_len - 1
     return generated_tokens
 
 # Generate and decode a sequence
-for i in range(num_sequences):
-    for w in w_values:
-        for label, label_idx in family.items():
-            generated_tokens = cfg_sequence(model, target_label=label_idx, w=w, temperature=temperature)
-            protein_sequence = dataset.decode(generated_tokens)
-            print(f"Generated token IDs (w={w}, label={label}):", generated_tokens)
-            print(f"Generated protein (w={w}, label={label}):", protein_sequence)
-            print(f"Length of generated protein (w={w}, label={label}):", len(protein_sequence))
+for w in w_values:
+    for i in range(num_sequences):
+        generated_tokens = cfg_sequence(model, target_label=label_idx, w=w, temperature=temperature)
+        protein_sequence = dataset.decode(generated_tokens)
+        print(f"Generated token IDs (w={w}):", generated_tokens)
+        print(f"Generated protein (w={w}):", protein_sequence)
+        print(f"Length of generated protein (w={w}):", len(protein_sequence))
 
-            rows.append({"sequence": protein_sequence, "label": label, "w": w})
+        rows.append({"sequence": protein_sequence, "family": family, "w": w})
             
 # Save sequences to CSV
-save_path = Path("results/sequences/cfg_sequences.csv")
+save_path = Path(args.out)
+save_path.parent.mkdir(parents=True, exist_ok=True)
 
-df = pd.DataFrame(rows)
-df.to_csv(save_path, index=False)
-
-print(f"Saved {num_sequences} sequences to {save_path}")
+pd.DataFrame(rows).to_csv(save_path, index=False)
+print(f"Saved {len(rows)} sequences to {save_path}")
