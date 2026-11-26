@@ -18,9 +18,9 @@ parser.add_argument("--model-path", type=str, required=True)
 parser.add_argument("--num-sequences", type=int, default=100)
 parser.add_argument("--w", type=float, nargs="+", default=[0.0, 0.5, 1.0, 2.0, 5.0])
 parser.add_argument("--temperature", type=float, default=1.0)
-parser.add_argument("--batch-size", type=int, default=64)
 parser.add_argument("--out", type=str, default="results/sequences/cfg_sequences.csv")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--family", type=str, default="HU")
 args = parser.parse_args()
 
 
@@ -31,9 +31,6 @@ args = parser.parse_args()
 # dropout = 0.2
 # max_len = 129
 # vocab_size = 23
-
-rows = []
-
 
 # # Define the path to the trained model file
 # model_path = "trained_models/trained_transformer_models/stage1/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
@@ -68,11 +65,11 @@ EOS = dataset.vocab["<EOS>"]
 # Define max length of generated sequence
 max_len = checkpoint["config"]["max_seq_len"]
 w_values = args.w
-batch_size = args.batch_size
 temperature = args.temperature
 num_sequences = args.num_sequences
+family = args.family
 
-generated_sequences = []
+rows = []
 
 # Function to generate a protein sequence using the trained transformer model
 def cfg_sequence(model, target_label, w, temperature=1.0, max_length=max_len - 1):
@@ -115,20 +112,19 @@ def cfg_sequence(model, target_label, w, temperature=1.0, max_length=max_len - 1
 # Generate and decode a sequence
 for i in range(num_sequences):
     for w in w_values:
-        for label, label_idx in fam_to_idx.items():
+        for label, label_idx in family.items():
             generated_tokens = cfg_sequence(model, target_label=label_idx, w=w, temperature=temperature)
             protein_sequence = dataset.decode(generated_tokens)
             print(f"Generated token IDs (w={w}, label={label}):", generated_tokens)
             print(f"Generated protein (w={w}, label={label}):", protein_sequence)
             print(f"Length of generated protein (w={w}, label={label}):", len(protein_sequence))
 
-            generated_sequences.append(protein_sequence)
             rows.append({"sequence": protein_sequence, "label": label, "w": w})
             
 # Save sequences to CSV
 save_path = Path("results/sequences/cfg_sequences.csv")
 
-df = pd.DataFrame({"sequence": generated_sequences})
+df = pd.DataFrame(rows)
 df.to_csv(save_path, index=False)
 
 print(f"Saved {num_sequences} sequences to {save_path}")
