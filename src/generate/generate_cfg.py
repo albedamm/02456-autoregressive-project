@@ -70,20 +70,38 @@ max_len = checkpoint["config"]["max_seq_len"]
 w_values = args.w
 batch_size = args.batch_size
 temperature = args.temperature
+num_sequences = args.num_sequences
 
+generated_sequences = []
 
 # Function to generate a protein sequence using the trained transformer model
-def cfg_sequence(model, target_label, w, batch_size=64, temperature=1.0, max_length=max_len - 1):
-    BOS, EOS = 1, 2
-    context = torch.tensor([[BOS]], dtype=torch.long)   # just <BOS>
+def cfg_sequence(model, target_label, w, temperature=1.0, max_length=max_len - 1):
+    
+    # Initialize the context with the beginning-of-sequence token 
+    context = torch.tensor([[BOS]], dtype=torch.long, device=DEVICE)  
+
+    
+    # Create label tensors for the conditional and null labels 
+    cond_labels = torch.tensor([target_label], dtype=torch.long, device=DEVICE)
+    null_labels = torch.tensor([null_label], dtype=torch.long, device=DEVICE)
+
     generated_tokens = []
 
     with torch.no_grad():
         for _ in range(max_length):
-            logits = model(context)[:, -1, :]
-            logits[:, :2] = -float("inf")               # block <PAD> and <BOS>
-
-            probabilities = torch.softmax(logits, dim=-1)
+            
+            # Forward pass through the model to get logits for both conditional and null labels
+            cond_logits = model(context, labels=cond_labels)[:, -1, :]
+            null_logits = model(context, labels=null_labels)[:, -1, :]
+        
+            logits = (1 + w) * cond_logits - w * null_logits
+            
+            # Avoid sampling <PAD> and <BOS> tokens by setting their logits to -inf
+            logits[:, PAD] = -float("inf") 
+            logits[:, BOS] = -float("inf")
+            
+            # Convert logits to probabilities using softmax 
+            probabilities = torch.softmax(logits / temperature, dim=-1)
             next_token = torch.multinomial(probabilities, num_samples=1)
 
             if next_token.item() == EOS:
@@ -96,16 +114,19 @@ def cfg_sequence(model, target_label, w, batch_size=64, temperature=1.0, max_len
 
 # Generate and decode a sequence
 for i in range(num_sequences):
-    generated_tokens = generate_sequence(model)
-    protein_sequence = dataset.decode(generated_tokens)
-    print("Generated token IDs:", generated_tokens)
-    print("Generated protein:", protein_sequence)
-    print("Length of generated protein:", len(protein_sequence))
+    for w in w_values:
+        for label, label_idx in fam_to_idx.items():
+            generated_tokens = cfg_sequence(model, target_label=label_idx, w=w, temperature=temperature)
+            protein_sequence = dataset.decode(generated_tokens)
+            print(f"Generated token IDs (w={w}, label={label}):", generated_tokens)
+            print(f"Generated protein (w={w}, label={label}):", protein_sequence)
+            print(f"Length of generated protein (w={w}, label={label}):", len(protein_sequence))
 
-    generated_sequences.append(protein_sequence)
-
+            generated_sequences.append(protein_sequence)
+            rows.append({"sequence": protein_sequence, "label": label, "w": w})
+            
 # Save sequences to CSV
-save_path = Path("results/sequences/transformer_sequences.csv")
+save_path = Path("results/sequences/cfg_sequences.csv")
 
 df = pd.DataFrame({"sequence": generated_sequences})
 df.to_csv(save_path, index=False)
