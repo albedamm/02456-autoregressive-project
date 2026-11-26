@@ -62,7 +62,7 @@ def initialize_classifier(
       class_head_features = 64 # also try 32 and 128
       ):
 
-    model = ProteinTransformer(
+    body = ProteinTransformer(
     vocab_size = vocab_size,
     d_model = d_model,
     n_heads = n_heads,
@@ -73,25 +73,25 @@ def initialize_classifier(
     )
 
     checkpoint_file = Path("/Users/kristinetoftjohansen/Desktop/DeepLearning/02456-autoregressive-project/trained_models/trained_transformer_models/stage1/d128_h4_l3_lr0.001_drop0.1_e60_s0.pth")
-    model.load_state_dict(torch.load(checkpoint_file, map_location=map_location))
+    body.load_state_dict(torch.load(checkpoint_file, map_location=map_location))
     
     num_model_parameters = 0
 
     # counts number of parameters
-    for p in model.parameters():
+    for p in body.parameters():
         if p.requires_grad:
             num_model_parameters += p.numel()
 
     # if finetine_entire_model is set to False, the parameters will be frozen
     if not finetune_entire_model:
-        for name, param in model.named_parameters():
+        for name, param in body.named_parameters():
             param.requires_grad = False
 
     # save the original output layer, which is a linear layer that outputs the logits for the next amino acid (128 to 23 aas)
-    lm_head = model.output_layer
+    lm_head = body.output_layer
 
     # make model(x) return the hidden states
-    model.output_layer = nn.Identity()
+    body.output_layer = nn.Identity()
 
     # adding the classification head
     class_head = nn.Sequential(
@@ -101,6 +101,6 @@ def initialize_classifier(
         nn.Linear(in_features = class_head_features, out_features = number_output_classes) #128 input features to this layer (d_model)
     ) # 128 numbers → 64 numbers → 3 family scores
 
-    return model, lm_head, class_head, {
+    return body, lm_head, class_head, {
         "num_model_parameters": num_model_parameters,
     }
