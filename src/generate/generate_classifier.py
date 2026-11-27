@@ -32,16 +32,16 @@ classifier = ProteinClassifier(model, lm_head, class_head)
 model_path = "trained_models/trained_transformer_models/stage1/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
 
 # Load the trained model weights into the classifier model
-model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
+classifier.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
 
 # Set the model to evaluation mode
-model.eval()
+classifier.eval()
 
 # Use the ProteinDataset function to load the decode function
 dataset = ProteinDataset("data/train.csv")
 
 # Function to generate a protein sequence using the trained transformer model
-def generate_sequence(model, max_length=max_len-2):
+def generate_sequence(classifier, max_length=max_len-2):
     BOS, EOS = 1, 2 # special tokens 
     context = torch.tensor([[BOS]], dtype=torch.long)   # start with just <BOS> (1, 1)
     generated_tokens = [] #initialize list for amino acids generated so far
@@ -52,36 +52,48 @@ def generate_sequence(model, max_length=max_len-2):
         # iterate over each amino acid (one added at a time)
         for _ in range(max_length):
 
-            # add one of the 20 amino acids
+            ### PLAN (PSEUDO CODE ETC)
 
-            #for each amino acid:
+            # new score(a) = p_LM(a) × p_family(X | prefix + a)
+            
+            # λ: how much you trust the family detector
+            # score(a) = log p_LM(a) + λ · log p_family(X | prefix + a)
 
-                # probabilities for each class if adding this amino acid.
+            # The theory behind it is Bayes' rule:
+            # p(a | prefix, family) is proportional to p(a | prefix) · p(family | prefix + a)
+            # (λ = 1 is that formula exactly.)
 
-                # save the prob for the desired class for that for that amino acid
+            # FIRST PART which amino acid would the real proteins have next? p(a | prefix)
+            logits = classifier(context)[:, -1, :] # scores for the next token (1, vocab)
+            # missing this part: logits[:, :2] = -float("inf") # block <PAD> and <BOS> (-inf gives prob 0 after activation)
+            torch.log_softmax(logits) #use log cause adding a lot of small numbers
 
-            # choose the amino acid with the highest prob for the desired class.
+            # add the amino acids to the context (same as transformer but for all 23 options)
+            context = torch.cat([context, next_token], dim=1)   # ???
 
-                
-            logits = model(context)[:, -1, :] # scores for the next token (1, vocab)
-            logits[:, :2] = -float("inf") # block <PAD> and <BOS> (-inf gives prob 0 after activation)
-            probabilities = torch.softmax(logits, dim=-1) # scores to probabilities
-            next_token = torch.multinomial(probabilities, num_samples=1) # draw the next token from the probabilities
+            # SECOND PART given the sequence with the new amino acid, what is the probability of each class?
+            class_logits = classifier(candidates)
 
-            # if that token is end of sequence, we stop
-            if next_token.item() == EOS:
-                break
+            # # multiplying the probabilities according to bayes theorem to get probabilities for the next amino acid:
+            # probabilities_combined = logits * class_logits
 
-            # append the token id and add the context for the next step
-            generated_tokens.append(next_token.item())
-            context = torch.cat([context, next_token], dim=1)   # grow, don't slide
+            # # taking into account both the FIRST (realistic amino acid) and SECOND (protein family) part, draw the best next amino acid
+            # next_token = torch.multinomial(probabilities_combined, num_samples=1) # draw the next token from the probabilities
+
+            # # if that token is end of sequence, we stop
+            # if next_token.item() == EOS:
+            #     break
+
+            # # append the token id and add the context for the next step
+            # generated_tokens.append(next_token.item())
+            # context = torch.cat([context, next_token], dim=1)   # grow, don't slide
 
     # return lit of ids, without <BOS> and <EOS>
     return generated_tokens
 
 # Generate and decode one sequence at a time using the generate_sequence func:
 for i in range(num_sequences):
-    generated_tokens = generate_sequence(model)
+    generated_tokens = generate_sequence(classifier)
     protein_sequence = dataset.decode(generated_tokens)
     print("Generated token IDs:", generated_tokens)
     print("Generated protein:", protein_sequence)
