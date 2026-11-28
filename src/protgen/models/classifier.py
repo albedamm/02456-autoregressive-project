@@ -51,6 +51,19 @@ class ProteinClassifier(nn.Module):
         return self
 
 
+def position_targets(x, y, vocab):
+    """
+    One class label per position: the protein's family y repeated along the sequence,
+    with IGNORE_INDEX on <PAD>, <BOS> and <EOS> so they count in neither loss nor accuracy.
+    x: (batch, seq_len) token ids, y: (batch,) family ids -> (batch, seq_len)
+    Shared by training, validation (src/train/train_classifier.py) and test (eval/test_classifier.py).
+    """
+    target = y.view(-1, 1).expand_as(x).clone()
+    for token in ("<PAD>", "<BOS>", "<EOS>"):
+        target[x == vocab[token]] = IGNORE_INDEX
+    return target
+
+
 
 def initialize_classifier(
       map_location="cpu",

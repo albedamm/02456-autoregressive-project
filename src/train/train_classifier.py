@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from protgen.data import IGNORE_INDEX, ProteinDataset
-from protgen.models.classifier import ProteinClassifier, initialize_classifier
+from protgen.models.classifier import ProteinClassifier, initialize_classifier, position_targets
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")  # 6.1 cell 2
 print(f"Device: {DEVICE}")
@@ -22,13 +22,15 @@ print(f"Device: {DEVICE}")
 ### 0. HYPERPARAMETERS ####
 ###########################
 parser = argparse.ArgumentParser()
-parser.add_argument("--learning-rate", type=float, default=1e-3)        # Default is set from first round of tuning
-parser.add_argument("--dropout", type=float, default=0.1)               # Default is set from first round of tuning
-parser.add_argument("--num-epochs", type=int, default=45)               # Default is set from first round of tuning
-parser.add_argument("--d-model", type=int, default=128)
-parser.add_argument("--num-heads", type=int, default=4)
-parser.add_argument("--num-layers", type=int, default=3)
+parser.add_argument("--learning-rate", type=float, default=1e-3)
+parser.add_argument("--dropout", type=float, default=0.1)
+parser.add_argument("--num-epochs", type=int, default=45)
 parser.add_argument("--class-head-features", type=int, default=64)
+# Default hyperparameters for the tuned transformer model
+parser.add_argument("--d-model", type=int, default=384)
+parser.add_argument("--num-heads", type=int, default=12)
+parser.add_argument("--num-layers", type=int, default=4)
+
 parser.add_argument("--seed", type=int, default=0)                      # Random seed, so runs can be reproduced and repeated
 parser.add_argument("--save-dir", type=str, default="trained_models/trained_classifier_models")
 args = parser.parse_args()
@@ -41,10 +43,10 @@ torch.manual_seed(seed)    # also seeds all CUDA devices
 
 # Model size, change if needed
 # vocab_size = 23 # 20 amino acids and <PAD>, <BOS> and <EOS>
-d_model = 128 # For every position there's a 128-dimensional vector to carry information, more dimensions means more capacity to represent each position. 
-num_heads = 4 # splits d_model dimensions into chunks (d_k = d_model / n_heads)
-d_ff = 512
-num_layers = 3 # depth
+d_model = args.d_model # For every position there's a d_model-dimensional vector to carry information, more dimensions means more capacity to represent each position. 
+num_heads = args.num_heads # splits d_model dimensions into chunks (d_k = d_model / n_heads)
+d_ff = 4 * d_model    # Feed-forward hidden size, 4x d_model as in Vaswani et al.
+num_layers = args.num_layers # depth
 max_len = 512 
 max_seq_len = 129 # the maxlength of the dataset sequences (here 127 amino acids (or <PAD>) + <BOS> and <EOS>)
 dropout = args.dropout
@@ -79,54 +81,12 @@ EOS = train_data.vocab["<EOS>"]
 ###############
 criterion = torch.nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
 
-
-###################
-### 3. SAMPLING ###
-###################
-'''
-# turn off gradient tracking
-@torch.no_grad()  # same as `with torch.no_grad():` in exercise 6.1
-def sample(model, batch_size=10, temperature=1.0, max_len=max_len):
-    """
-    Produces protein sequences one amino acid at a time
-    """
-
-    # turn off dropout
-    model.eval()
-
-    # creates Tensors filled with BOS
-    token_ids = torch.full(size=(batch_size, 1), fill_value=BOS, dtype=torch.long, device=DEVICE)
-
-    # add one amino acid at a time until max-length is reached:
-    for t in range(max_len - 1):
-        logits = model(token_ids) # runs everything through the transformer to get scores for each position 
-        logits_t = logits[:, -1:] / temperature # picks the last one and normalizes according to temp
-        forbidden = torch.tensor([PAD, BOS], device=DEVICE).view(1, 1, -1).expand(batch_size, 1, -1)
-        logits_t.scatter_(index=forbidden, dim=2, value=-math.inf)
-        p_wt = torch.distributions.Categorical(logits=logits_t)
-        tokens_t = p_wt.sample() # (B, 1)
-        token_ids = torch.cat([token_ids, tokens_t], dim=1)
-        if (token_ids == EOS).any(dim=1).all():
-            break
-
-    # cut each sequence at its first <EOS> and turn ids into amino-acid letters
-    sequences = []
-    for seq in token_ids.cpu():
-        eos_positions = (seq == EOS).nonzero()
-        if len(eos_positions) > 0:
-            seq = seq[: eos_positions[0, 0]]
-        sequences.append(train_data.decode(seq))
-    return sequences
-'''
-
 ###################
 ### 3. TRAINING ###
 ###################
-
 if __name__ == "__main__":
-
     # define the model from the pretrained transformer
-    body, lm_head, class_head, data = initialize_classifier(map_location = "cpu",
+    body, lm_head, class_head, data = initialize_classifier(map_location = DEVICE,
                                                             #  number_classes = 3,
                                                             finetune_entire_model = False,
                                                             class_head_features=args.class_head_features,
@@ -135,7 +95,6 @@ if __name__ == "__main__":
     # and define the classifier
     classifier = ProteinClassifier(body, lm_head, class_head)
 
-    # 
     classifier = classifier.to(DEVICE)
 
     # print model parameters 
@@ -180,12 +139,9 @@ if __name__ == "__main__":
 
             # define training set (y since classification now)
             x, y = x.to(DEVICE), y.to(DEVICE)
-            # define one prediction per position (for target) - so returns list with 129 predicted classes for that protein
-            target = y.view(-1, 1).expand_as(x).clone()
-            # Ignore the <PAD>, <BOS> and <EOS> tokens in the loss calculation, since they are not part of the protein sequence
-            target[x == PAD] = IGNORE_INDEX
-            target[x == BOS] = IGNORE_INDEX
-            target[x == EOS] = IGNORE_INDEX
+            # one target class per position (129 per protein), IGNORE_INDEX on <PAD>, <BOS> and <EOS>,
+            # since they are not part of the protein sequence
+            target = position_targets(x, y, train_data.vocab)
 
             # Forward through the model
             optimiser.zero_grad()
@@ -242,14 +198,11 @@ if __name__ == "__main__":
 
                 # define validation datasets (using y since classification)
                 x, y = x.to(DEVICE), y.to(DEVICE)
-                # Same as above, define one prediction per position (for target) - so returns list with 129 predicted classes for that protein
-                target = y.view(-1, 1).expand_as(x).clone()
-                # Ignore the <PAD>, <BOS> and <EOS> tokens in the loss calculation, since they are not part of the protein sequence
-                target[x == PAD] = IGNORE_INDEX
-                target[x == BOS] = IGNORE_INDEX
-                target[x == EOS] = IGNORE_INDEX
+                # Same targets as in the train loop
+                target = position_targets(x, y, val_data.vocab)
                 # Same procedure as in the train loop, but now for the validation data
                 logits = classifier(x)
+                # validation loss and accuracy are calculated in the same way as in the training loop
                 val_loss += criterion(logits.transpose(1, 2), target).item()
                 valid_positions = target != IGNORE_INDEX
                 predictions = logits.argmax(dim=-1)
@@ -274,35 +227,42 @@ if __name__ == "__main__":
         # Print what the model generates right now
         #print("  sample:", sample(classifier, batch_size=1)[0][:60], "...")
 
-    # Loss curve, as in src/train/train_mlp.py
-    plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label="Training loss")
-    plt.plot(val_losses, label="Validation loss")
-    
-    plt.xlabel("Epoch")
-    plt.ylabel("Negative log-likelihood per token")
-    plt.title(
-        "Transformer training and validation loss\n"
-        f"learning rate={learning_rate}, dropout={dropout}, epochs={num_epochs}\n"
-        f"d_model={d_model}, heads={num_heads}, layers={num_layers}, seed={seed}"
+    epochs = range(1, num_epochs + 1)
+    best_epoch = val_losses.index(min(val_losses)) + 1    # the epoch the saved checkpoint is from
+    settings = (
+        f"head features={args.class_head_features}, learning rate={learning_rate}, "
+        f"dropout={dropout}, epochs={num_epochs}, seed={seed}\n"
+        f"frozen transformer: d_model={d_model}, heads={num_heads}, layers={num_layers}"
     )
-    
+
+    # Loss curve
+    plt.figure(figsize=(10, 5))
+    plt.plot(epochs, train_losses, label="Training loss")
+    plt.plot(epochs, val_losses, label="Validation loss")
+    plt.axvline(best_epoch, color="grey", linestyle="--", label=f"Saved checkpoint (epoch {best_epoch})")
+    plt.xlabel("Epoch")
+    plt.ylabel("Cross-entropy per amino-acid position (nats)")
+    plt.title(f"Classifier training and validation loss\n{settings}")
     plt.legend()
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(save_dir / f"{model_name}_loss_curve.png")
 
+    # Accuracy curve
     plt.figure(figsize=(10, 5))
-    plt.plot(train_accuracies, label="Training accuracy")
-    plt.plot(val_accuracies, label="Validation accuracy")
+    plt.plot(epochs, train_accuracies, label="Training accuracy")
+    plt.plot(epochs, val_accuracies, label="Validation accuracy")
+    plt.axvline(best_epoch, color="grey", linestyle="--", label=f"Saved checkpoint (epoch {best_epoch})")
     plt.xlabel("Epoch")
-    plt.ylabel("Amino-acid position accuracy")
-    plt.title("Classifier accuracy")
+    plt.ylabel("Accuracy per amino-acid position")
+    plt.title(f"Classifier training and validation accuracy\n{settings}")
     plt.legend()
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(save_dir / f"{model_name}_accuracy_curve.png")
 
     pd.DataFrame({
-        "epoch": range(1, num_epochs + 1),
+        "epoch": epochs,
         "train_loss": train_losses,
         "val_loss": val_losses,
         "train_accuracy": train_accuracies,

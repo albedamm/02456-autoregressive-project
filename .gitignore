@@ -227,10 +227,16 @@ results/*
 !results/sequences/
 results/sequences/*
 !results/sequences/*.csv
-
+!results/sequences/classifier_sequences/
+!results/eval/
+<<<<<<< Updated upstream
 # Ignore full dict of trained models
 trained_cond_transformer_models_hid/
-
+trained_transformer_models/
+trained_classifier_models/
+=======
+trained_models/trained_transformer_models/
+>>>>>>> Stashed changes
 # Job logs, but hpc/logs/ itself is kept: LSF opens a job's .out/.err before the script runs, so a
 # missing directory fails the job rather than being created by it, and it has to survive a clone.
 logs/

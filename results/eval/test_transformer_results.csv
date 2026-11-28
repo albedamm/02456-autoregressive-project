@@ -1,0 +1,2 @@
+checkpoint,sequences,loss,perplexity
+trained_models/trained_transformer_models/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth,2001,1.3904647640883923,4.016716444801461

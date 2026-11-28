@@ -212,10 +212,13 @@ if __name__ == "__main__": # only runs if the file is executed directly, not if 
         print("  sample:", sample(model, batch_size=1)[0][:60], "...")
 
     # Loss curve, as in src/train/train_mlp.py
+    epochs = range(1, num_epochs + 1)
+    best_epoch = val_losses.index(min(val_losses)) + 1    # the epoch the saved checkpoint is from
     plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label="Training loss")
-    plt.plot(val_losses, label="Validation loss")
-    
+    plt.plot(epochs, train_losses, label="Training loss")
+    plt.plot(epochs, val_losses, label="Validation loss")
+    plt.axvline(best_epoch, color="grey", linestyle="--", label=f"Saved checkpoint (epoch {best_epoch})")
+
     plt.xlabel("Epoch")
     plt.ylabel("Negative log-likelihood per token")
     plt.title(
@@ -226,6 +229,7 @@ if __name__ == "__main__": # only runs if the file is executed directly, not if 
     
     plt.legend()
     plt.grid(True)
+    plt.tight_layout()    # keeps the three-line title inside the figure
     plt.savefig(save_dir / f"{model_name}_loss_curve.png")
 
     pd.DataFrame({

@@ -13,13 +13,16 @@ import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_sequences", type = int, default = 1)
-parser.add_argument("--trained_model", type = str, default = "trained_models/trained_classifier_models/d128_h4_l3_cf64_lr0.001_drop0.1_e1_s0.pth")
-parser.add_argument("--save_dir", type = str, default = "results/sequences/classifier")
+parser.add_argument("--trained_model", type = str, default = "trained_models/trained_classifier_models/d384_h12_l4_cf128_lr0.001_drop0.2_e60_s0.pth")
+parser.add_argument("--save_dir", type = str, default = "results/sequences/classifier_sequences")
 parser.add_argument("--target_family", type = int, default = 0)
+# 0 = AcyP, 1 = HPr, 2 = HU
 parser.add_argument("--lam", type = float, default = 0.5)
 args = parser.parse_args() # Maybe try for lambda values like: 0, 0.5, 1, 2, 5, 10
 
 # Hyperparameter settings
+class_head_features = 128
+class_head_dropout = 0.2
 batch_size = 64 # not used
 d_model = 384 # not used
 d_ff = 4 * d_model # not used
@@ -45,7 +48,9 @@ generated_sequences = []
 # define the model from the pretrained transformer
 body, lm_head, class_head, data = initialize_classifier(map_location = "cpu", 
                                                         #  number_classes = 3,
-                                                        finetune_entire_model = False)
+                                                        finetune_entire_model = False,
+                                                        class_head_features = class_head_features,
+                                                        class_head_dropout = class_head_dropout,)
 classifier = ProteinClassifier(body, lm_head, class_head) # and build the classifier
 # classifier has lm_logits from ProteinClassifier class which gives the aa scores from the frozen transformer layer.
 

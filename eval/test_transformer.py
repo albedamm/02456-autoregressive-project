@@ -1,3 +1,4 @@
+import csv
 import math
 from pathlib import Path
 
@@ -9,7 +10,8 @@ from protgen.models.transformer import ProteinTransformer
 
 # Paths to test data and chosen model
 data_path = Path("data/test.csv")
-model_path = "trained_models/trained_transformer_models/stage1/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
+model_path = "trained_models/trained_transformer_models/d384_h12_l4_lr0.001_drop0.2_e60_s0.pth"
+results_path = Path("results/eval/test_transformer_results.csv")
 
 # Hyperparameter settings
 batch_size = 64
@@ -56,9 +58,17 @@ def main():
     model.to(device).eval()
 
     print(f"checkpoint: {checkpoint}")
-    print(f"{'sequences':>9s} {'loss':>18s}")
     loss, n_seq = score(model, test_loader, device)
-    print(f"{n_seq:9d} {loss:18.4f}")
+    perplexity = math.exp(loss)
+    print(f"{'sequences':>9s} {'loss':>18s} {'perplexity':>12s}")
+    print(f"{n_seq:9d} {loss:18.4f} {perplexity:12.4f}")
+
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    with results_path.open("w", newline="") as results_file:
+        writer = csv.writer(results_file)
+        writer.writerow(("checkpoint", "sequences", "loss", "perplexity"))
+        writer.writerow((checkpoint, n_seq, loss, perplexity))
+    print(f"Results saved to {results_path}")
 
 
 if __name__ == "__main__":

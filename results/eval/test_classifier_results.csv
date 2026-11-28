@@ -1,0 +1,2 @@
+checkpoint,proteins,loss,amino_acid_accuracy,protein_accuracy
+trained_models/trained_classifier_models/d384_h12_l4_cf128_lr0.001_drop0.2_e60_s0.pth,2001,0.09495639009401202,0.9571602128461004,1.0
